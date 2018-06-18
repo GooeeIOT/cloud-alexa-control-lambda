@@ -1,0 +1,87 @@
+{
+    "endpointId": "__REPLACE_ME__",
+    "manufacturerName": "Gooee",
+    "friendlyName": "__REPLACE_ME__",
+    "description": "Space in the Gooee Platform",
+    "displayCategories": ["SWITCH"],
+    "cookie": {
+        "type": "space"
+    },
+    "capabilities": [
+        {
+            "type": "AlexaInterface",
+            "interface": "Alexa.PowerController",
+            "version": "3",
+            "properties": {
+                "supported": [
+                    {
+                        "name": "powerState"
+                    }
+                ],
+                "proactivelyReported": true,
+                "retrievable": true
+            }
+        },
+        {
+            "type": "AlexaInterface",
+            "interface": "Alexa.BrightnessController",
+            "version": "3",
+            "properties": {
+                "supported": [
+                    {
+                        "name": "brightness"
+                    }
+                ],
+                "proactivelyReported": true,
+                "retrievable": true
+            }
+        },
+        {
+            "type": "AlexaInterface",
+            "interface": "Alexa.PowerLevelController",
+            "version": "3",
+            "properties": {
+                "supported": [
+                    {
+                        "name": "powerLevel"
+                    }
+                ],
+                "proactivelyReported": true,
+                "retrievable": true
+            }
+        },
+        {
+            "type": "AlexaInterface",
+            "interface": "Alexa.PercentageController",
+            "version": "3",
+            "properties": {
+                "supported": [
+                    {
+                        "name": "percentage"
+                    }
+                ],
+                "proactivelyReported": true,
+                "retrievable": true
+            }
+        },
+        {
+            "type": "AlexaInterface",
+            "interface": "Alexa.EndpointHealth",
+            "version": "3",
+            "properties": {
+                "supported": [
+                    {
+                        "name": "connectivity"
+                    }
+                ],
+                "proactivelyReported": true,
+                "retrievable": true
+            }
+        },
+        {
+            "type": "AlexaInterface",
+            "interface": "Alexa",
+            "version": "3"
+        }
+    ]
+}
