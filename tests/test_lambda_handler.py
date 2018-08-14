@@ -17,6 +17,8 @@ limitations under the License.
 
 from unittest import mock
 from uuid import uuid4
+from pathlib import Path
+import json
 
 import lambda_function
 import pytest
@@ -42,6 +44,50 @@ def fake_requests():
                     },
                 },
             },
+        },
+        "report_state_request_space": {
+            "directive": {
+                "header": {
+                    "namespace": "Alexa",
+                    "name": "ReportState",
+                    "payloadVersion": "3",
+                    "messageId": str(uuid4()),
+                    "correlationToken": uuid4().hex,
+                },
+                "endpoint": {
+                    "scope": {
+                        "type": "BearerToken",
+                        "token": uuid4().hex,
+                    },
+                    "endpointId": "appliance-001",
+                    "cookie": {
+                        "type": "space",
+                    }
+                },
+                "payload": {}
+            }
+        },
+        "report_state_request_device": {
+            "directive": {
+                "header": {
+                    "namespace": "Alexa",
+                    "name": "ReportState",
+                    "payloadVersion": "3",
+                    "messageId": str(uuid4()),
+                    "correlationToken": uuid4().hex,
+                },
+                "endpoint": {
+                    "scope": {
+                        "type": "BearerToken",
+                        "token": uuid4().hex,
+                    },
+                    "endpointId": "appliance-001",
+                    "cookie": {
+                        "type": "device",
+                    }
+                },
+                "payload": {}
+            }
         },
         "dim": {
             "directive": {
@@ -127,6 +173,69 @@ def test_discovery(mocked_get_req, fake_requests):
     assert len(res['event']['payload']['endpoints']) == 2
     assert res['event']['payload']['endpoints'][0]['friendlyName'] == 'test space'
     assert res['event']['payload']['endpoints'][1]['friendlyName'] == 'test device'
+
+
+@mock.patch("lambda_function.g_get_request")
+def test_report_state(mocked_get_req, fake_requests):
+    mocked_get_req.side_effect = (
+        {
+            "meta": [
+                {
+                    "name": "dim",
+                    "value": 100,
+                    "unit_of_measure": "%",
+                    "groups": [
+                        "~operational"
+                    ],
+                },
+                {
+                    "name": "is_online",
+                    "value": False,
+                    "unit_of_measure": None,
+                    "groups": [
+                        "~operational"
+                    ],
+                },
+                {
+                    "name": "onoff",
+                    "value": True,
+                    "unit_of_measure": None,
+                    "groups": [
+                        "~operational",
+                        "~internal"
+                    ],
+                }
+            ],
+        },
+        {
+            "space": uuid4().hex,
+            "states": {
+                uuid4().hex: {"dim": 100, "onoff": True},
+                uuid4().hex: {"dim": 0, "onoff": False},
+            },
+        },
+    )
+    # Test states for Devices
+    res = lambda_function.lambda_handler(fake_requests['report_state_request_device'], {})
+    assert isinstance(res, dict)
+    state_names = []
+    with (Path.cwd() / 'device-template.json').open('r') as fp:
+        for cap in json.load(fp)['capabilities']:
+            if 'properties' in cap and cap['properties']['retrievable']:
+                state_names.append(cap['properties']['supported'][0]['name'])
+    assert all(True if prop['name'] in state_names else False
+            for prop in res['context']['properties'])
+
+    # Test states for Spaces
+    res = lambda_function.lambda_handler(fake_requests['report_state_request_space'], {})
+    assert isinstance(res, dict)
+    state_names = []
+    with (Path.cwd() / 'space-template.json').open('r') as fp:
+        for cap in json.load(fp)['capabilities']:
+            if 'properties' in cap and cap['properties']['retrievable']:
+                state_names.append(cap['properties']['supported'][0]['name'])
+    assert all(True if prop['name'] in state_names else False
+            for prop in res['context']['properties'])
 
 
 @mock.patch("lambda_function.g_post_action_request")

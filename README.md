@@ -34,4 +34,3 @@ After installing the requirements, run them locally by executing `pytest` *or* `
 ## Future Plans
 
 * Implement a `SceneController`.
-* Implement a handler for `ReportState` directives.
