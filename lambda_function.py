@@ -401,7 +401,7 @@ def handle_report_state(request: dict) -> dict:
     type_ = request['directive']['endpoint']['cookie']['type']
     bearer_token = request['directive']['endpoint']['scope']['token']
 
-    gooee_state = g_get_state(type_, id_, bearer_token)
+    gooee_state = g_get_state(type_, endpoint, bearer_token)
 
     properties = []
 
