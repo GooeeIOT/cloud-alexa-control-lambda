@@ -174,14 +174,14 @@ def g_get_request(endpoint: str, key: str):
     return json.loads(data.decode('utf-8'))
 
 
-def g_get_state(type_: str, uuid: str, bearer_token: str) -> dict:
+def g_get_state(type_: str, id_: str, bearer_token: str) -> dict:
     """Fetches the status of a Space/Device in a name, value dict"""
     if type_ == 'device':
-        gooee_response = g_get_request(f'/{type_}s/{uuid}', bearer_token)
+        gooee_response = g_get_request(f'/{type_}s/{id_}', bearer_token)
         return {meta['name']: meta['value'] for meta in gooee_response['meta']}
     else:  # space only supports dim and onoff states
         gooee_response = g_get_request(
-            f'/{type_}s/{uuid}/device_states',
+            f'/{type_}s/{id_}/device_states',
             bearer_token,
         )
         counter = Counter()
@@ -401,7 +401,7 @@ def handle_report_state(request: dict) -> dict:
     type_ = request['directive']['endpoint']['cookie']['type']
     bearer_token = request['directive']['endpoint']['scope']['token']
 
-    gooee_state = g_get_state(type_, uuid, bearer_token)
+    gooee_state = g_get_state(type_, id_, bearer_token)
 
     properties = []
 
