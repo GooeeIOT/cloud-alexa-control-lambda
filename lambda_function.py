@@ -192,9 +192,26 @@ def g_get_state(type_: str, id_: str, bearer_token: str) -> dict:
         except ZeroDivisionError:  # Possible parent space with nested spaces
             # /spaces/{id}/devices_states does not report nested spaces devices
             # which causes a 0/0
-            raise BadRequestException(
-                'State Reporting not supported on this Space.',
-            )
+            return {
+                'event': {
+                    'header': {
+                        'namespace': 'Alexa',
+                        'name': 'ErrorResponse',
+                        'messageId': str(uuid.uuid4()),
+                        'correlationToken':
+                            request['directive']['header']['correlationToken'],
+                        'payloadVersion': '3',
+                    },
+                    'endpoint': {
+                        'endpointId':
+                            request['directive']['endpoint']['endpointId']
+                    },
+                    'payload': {
+                        'type': 'INVALID_VALUE',
+                        'message': 'State Reporting not supported on this Space.',
+                    }
+                }
+            }
         return {  # Average dim and if one device in space is on, onoff = True
             'dim': int(counter['dim'] / len(gooee_response['states'])),
             'onoff': bool(counter['onoff']),
@@ -352,7 +369,7 @@ def handle_brightness_controller(request: dict) -> dict:
                 {
                     'namespace': request_name,
                     'name': 'brightness',
-                    'value': abs(value),  # TODO: get actual value from API
+                    'value': abs(value),
                     'timeOfSample': time.strftime(
                         '%Y-%m-%dT%H:%M:%S.00Z',
                         time.gmtime(),
