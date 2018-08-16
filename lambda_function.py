@@ -21,7 +21,7 @@ import logging
 import os
 import time
 import uuid
-
+from collections import Counter
 
 API_URL = os.environ.get('API_URL') or 'api.gooee.io'
 LOGGER = logging.getLogger()
@@ -48,6 +48,17 @@ with open('space-template.json') as fp:
 with open('device-template.json') as fp:
     DEVICE_TEMPLATE = json.load(fp)
 
+# Map of Amazon's device capabilities to Gooee's device meta values
+CAPABILITY_TO_META = {
+    'powerState': ('onoff', lambda val: 'ON' if val else 'OFF'),
+    'brightness': ('dim', lambda val: val),
+    'powerLevel': ('dim',
+        lambda val: {"@type": "IntegralPowerLevel", "value": val}),
+    'percentage': ('dim', lambda val: val),
+    'connectivity': ('is_online',
+        lambda val: {"value": "OK" if val else "UNREACHABLE"})
+}
+
 
 class AuthException(Exception):
     """Auth Exception from the Cloud API."""
@@ -55,6 +66,10 @@ class AuthException(Exception):
 
 class BadRequestException(Exception):
     """Got a 400 Bad request from the Cloud API."""
+
+
+class ParentSpaceException(Exception):
+    """Parent Spaces do not have devices causing a ZeroDivisionError"""
 
 
 def lambda_handler(request: dict, context: dict) -> dict:
@@ -67,6 +82,8 @@ def lambda_handler(request: dict, context: dict) -> dict:
 
         if header['name'] == 'Discover':
             response = handle_discovery(request)
+        elif header['name'] == 'ReportState':
+            response = handle_report_state(request)
         elif header['namespace'] == 'Alexa.PowerController':
             response = handle_power_controller(request)
         elif header['namespace'] == 'Alexa.BrightnessController':
@@ -108,6 +125,10 @@ def lambda_handler(request: dict, context: dict) -> dict:
             error_response['event']['payload']['type'] = \
                 'INVALID_AUTHORIZATION_CREDENTIAL'
             error_response['event']['payload']['message'] = err.args[0]
+        elif isinstance(err, ParentSpaceException):
+            error_response['event']['payload']['type'] = 'INVALID_DIRECTIVE'
+            error_response['event']['payload']['message'] = err.args[0]
+            return error_response  # Skip logging in Sentry
 
         if SENTRY_CLIENT:
             SENTRY_CLIENT.captureException()
@@ -159,6 +180,33 @@ def g_get_request(endpoint: str, key: str):
     LOGGER.info('Cloud-api response:')
     LOGGER.info(data.decode('utf-8'))
     return json.loads(data.decode('utf-8'))
+
+
+def g_get_state(type_: str, id_: str, bearer_token: str) -> dict:
+    """Fetches the status of a Space/Device in a name, value dict"""
+    if type_ == 'device':
+        gooee_response = g_get_request(f'/{type_}s/{id_}', bearer_token)
+        return {meta['name']: meta['value'] for meta in gooee_response['meta']}
+    else:  # space only supports dim and onoff states
+        gooee_response = g_get_request(
+            f'/{type_}s/{id_}/device_states',
+            bearer_token,
+        )
+        counter = Counter()
+        for val in gooee_response['states'].values():
+            counter.update(val)
+        try:
+            avg_dim = int(counter['dim'] / len(gooee_response['states']))
+        except ZeroDivisionError:  # Possible parent space with nested spaces
+            # /spaces/{id}/devices_states does not report nested spaces devices
+            # which causes a 0/0
+            raise ParentSpaceException('State Reporting not supported on this '
+                                       'Space.')
+        return {  # Average dim and if one device in space is on, onoff = True
+            'dim': avg_dim,
+            'onoff': bool(counter['onoff']),
+            'is_online': True,  # hard code space to be online
+        }
 
 
 def handle_discovery(request: dict) -> dict:
@@ -311,7 +359,7 @@ def handle_brightness_controller(request: dict) -> dict:
                 {
                     'namespace': request_name,
                     'name': 'brightness',
-                    'value': abs(value),  # TODO: get actual value from API
+                    'value': abs(value),
                     'timeOfSample': time.strftime(
                         '%Y-%m-%dT%H:%M:%S.00Z',
                         time.gmtime(),
@@ -360,3 +408,66 @@ def handle_auth(request: dict) -> dict:
             }
         }
         return response
+
+
+def handle_report_state(request: dict) -> dict:
+    """ReportState Handler"""
+    endpoint = request['directive']['endpoint']['endpointId']
+    type_ = request['directive']['endpoint']['cookie']['type']
+    bearer_token = request['directive']['endpoint']['scope']['token']
+
+    gooee_state = g_get_state(type_, endpoint, bearer_token)
+
+    properties = []
+
+    capabilities = (SPACE_TEMPLATE['capabilities']
+            if type_ == 'space' else DEVICE_TEMPLATE['capabilities'])
+    for capability in capabilities:
+        try:
+            if not capability['properties']['retrievable']:
+                continue
+        except KeyError:
+            continue
+        amz_name = capability['properties']['supported'][0]['name']
+        property_ = {
+            'namespace': capability['interface'],
+            'name': amz_name,
+            'timeOfSample': time.strftime(
+                '%Y-%m-%dT%H:%M:%S.00Z',
+                time.gmtime(),
+            ),
+
+            'uncertaintyInMilliseconds': 500,
+        }
+        # Translate Gooee meta to how Alexa expects it, for example:
+        # if gooee_state was {'onoff': True} transfunc will return 'ON'
+        gooee_name, transfunc = CAPABILITY_TO_META[amz_name]
+        property_['value'] = transfunc(gooee_state[gooee_name])
+
+        properties.append(property_)
+
+    response = {
+        'context': {
+            'properties': properties,
+        },
+        'event': {
+            'header': {
+                'namespace': 'Alexa',
+                'name': 'StateReport',
+                'payloadVersion': '3',
+                'messageId': str(uuid.uuid4()),
+                'correlationToken':
+                    request['directive']['header']['correlationToken'],
+            },
+            'endpoint': {
+                'scope': {
+                    'type': 'BearerToken',
+                    'token': bearer_token,
+                },
+                'endpointId': endpoint
+            },
+            'payload': {
+            },
+        }
+    }
+    return response

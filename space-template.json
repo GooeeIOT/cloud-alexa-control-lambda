@@ -18,7 +18,7 @@
                         "name": "powerState"
                     }
                 ],
-                "proactivelyReported": true,
+                "proactivelyReported": false,
                 "retrievable": true
             }
         },
@@ -32,7 +32,7 @@
                         "name": "brightness"
                     }
                 ],
-                "proactivelyReported": true,
+                "proactivelyReported": false,
                 "retrievable": true
             }
         },
@@ -46,7 +46,7 @@
                         "name": "powerLevel"
                     }
                 ],
-                "proactivelyReported": true,
+                "proactivelyReported": false,
                 "retrievable": true
             }
         },
@@ -60,7 +60,7 @@
                         "name": "percentage"
                     }
                 ],
-                "proactivelyReported": true,
+                "proactivelyReported": false,
                 "retrievable": true
             }
         },
@@ -74,7 +74,7 @@
                         "name": "connectivity"
                     }
                 ],
-                "proactivelyReported": true,
+                "proactivelyReported": false,
                 "retrievable": true
             }
         },
