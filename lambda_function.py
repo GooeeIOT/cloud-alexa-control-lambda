@@ -126,8 +126,9 @@ def lambda_handler(request: dict, context: dict) -> dict:
                 'INVALID_AUTHORIZATION_CREDENTIAL'
             error_response['event']['payload']['message'] = err.args[0]
         elif isinstance(err, ParentSpaceException):
-            error_response['event']['payload']['type'] = 'INVALID_VALUE'
+            error_response['event']['payload']['type'] = 'INVALID_DIRECTIVE'
             error_response['event']['payload']['message'] = err.args[0]
+            return error_response  # Skip logging in Sentry
 
         if SENTRY_CLIENT:
             SENTRY_CLIENT.captureException()
