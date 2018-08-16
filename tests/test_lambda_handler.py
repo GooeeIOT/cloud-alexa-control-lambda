@@ -214,7 +214,12 @@ def test_report_state(mocked_get_req, fake_requests):
                 uuid4().hex: {"dim": 0, "onoff": False},
             },
         },
+        {
+            "space": uuid4().hex,
+            "states": {},
+        },
     )
+
     # Test states for Devices
     res = lambda_function.lambda_handler(fake_requests['report_state_request_device'], {})
     assert isinstance(res, dict)
@@ -237,6 +242,10 @@ def test_report_state(mocked_get_req, fake_requests):
     assert all(True if prop['name'] in state_names else False
             for prop in res['context']['properties'])
 
+    # Test empty {} device_states response, block ZeroDivisionError
+    res = lambda_function.lambda_handler(fake_requests['report_state_request_space'], {})
+    assert isinstance(res, dict)
+    assert 'ErrorResponse' in res['event']['header']['name']
 
 @mock.patch("lambda_function.g_post_action_request")
 def test_power_controller(mocked_post_req, fake_requests):
