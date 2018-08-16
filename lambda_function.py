@@ -68,6 +68,10 @@ class BadRequestException(Exception):
     """Got a 400 Bad request from the Cloud API."""
 
 
+class ParentSpaceException(Exception):
+    """Parent Spaces do not have devices causing a ZeroDivisionError"""
+
+
 def lambda_handler(request: dict, context: dict) -> dict:
     """Main Lambda handler."""
 
@@ -120,6 +124,9 @@ def lambda_handler(request: dict, context: dict) -> dict:
         elif isinstance(err, AuthException):
             error_response['event']['payload']['type'] = \
                 'INVALID_AUTHORIZATION_CREDENTIAL'
+            error_response['event']['payload']['message'] = err.args[0]
+        elif isinstance(err, ParentSpaceException):
+            error_response['event']['payload']['type'] = 'INVALID_VALUE'
             error_response['event']['payload']['message'] = err.args[0]
 
         if SENTRY_CLIENT:
@@ -192,26 +199,8 @@ def g_get_state(type_: str, id_: str, bearer_token: str) -> dict:
         except ZeroDivisionError:  # Possible parent space with nested spaces
             # /spaces/{id}/devices_states does not report nested spaces devices
             # which causes a 0/0
-            return {
-                'event': {
-                    'header': {
-                        'namespace': 'Alexa',
-                        'name': 'ErrorResponse',
-                        'messageId': str(uuid.uuid4()),
-                        'correlationToken':
-                            request['directive']['header']['correlationToken'],
-                        'payloadVersion': '3',
-                    },
-                    'endpoint': {
-                        'endpointId':
-                            request['directive']['endpoint']['endpointId']
-                    },
-                    'payload': {
-                        'type': 'INVALID_VALUE',
-                        'message': 'State Reporting not supported on this Space.',
-                    }
-                }
-            }
+            raise ParentSpaceException('State Reporting not supported on this '
+                                       'Space.')
         return {  # Average dim and if one device in space is on, onoff = True
             'dim': int(counter['dim'] / len(gooee_response['states'])),
             'onoff': bool(counter['onoff']),
