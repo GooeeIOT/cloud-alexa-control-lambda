@@ -307,10 +307,16 @@ def test_error_handling(mock_client, mock_get_req, mock_post_req, fake_requests)
     assert args[0]['value']['level'] == brightness_value
     assert res['event']['payload']['type'] == 'INVALID_AUTHORIZATION_CREDENTIAL'
 
-
     # Must return [] if error associated with the customer's account occurs
     mock_get_req.side_effect = lambda_function.AuthException('testing')
     res = lambda_function.lambda_handler(fake_requests['discovery_request'], {})
     assert isinstance(res, dict)
     assert len(res['event']['payload']['endpoints']) == 0
     mock_client.captureException.assert_not_called()
+
+    # Catch 404s
+    mock_get_req.side_effect = lambda_function.BadRequestException('testing')
+    res = lambda_function.lambda_handler(fake_requests['report_state_request_space'], {})
+    assert isinstance(res, dict)
+    assert res['event']['payload']['type'] == 'NO_SUCH_ENDPOINT'
+    mock_client.captureException.assert_called_once()

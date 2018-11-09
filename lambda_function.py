@@ -153,7 +153,7 @@ def g_post_action_request(payload: dict, key: str):
     res = conn.getresponse()
     if res.status in (http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN):
         raise AuthException('Auth error')
-    if res.status == http.HTTPStatus.BAD_REQUEST:
+    if res.status in (http.HTTPStatus.BAD_REQUEST, http.HTTPStatus.NOT_FOUND):
         raise BadRequestException('Device or Space not found')
     data = res.read()
 
@@ -175,6 +175,8 @@ def g_get_request(endpoint: str, key: str):
     res = conn.getresponse()
     if res.status in (http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN):
         raise AuthException('Auth error')
+    if res.status in (http.HTTPStatus.BAD_REQUEST, http.HTTPStatus.NOT_FOUND):
+        raise BadRequestException('Device or Space not found')
     data = res.read()
 
     LOGGER.info('Cloud-api response:')
