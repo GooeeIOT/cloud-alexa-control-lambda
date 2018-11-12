@@ -444,7 +444,7 @@ def handle_report_state(request: dict) -> dict:
         # Translate Gooee meta to how Alexa expects it, for example:
         # if gooee_state was {'onoff': True} transfunc will return 'ON'
         gooee_name, transfunc = CAPABILITY_TO_META[amz_name]
-        property_['value'] = transfunc(gooee_state[gooee_name])
+        property_['value'] = transfunc(gooee_state.get(gooee_name))
 
         properties.append(property_)
 
