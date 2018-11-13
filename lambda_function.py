@@ -23,7 +23,7 @@ import time
 import uuid
 from collections import Counter
 
-API_URL = os.environ.get('API_URL') or 'api.gooee.io'
+API_URL = os.environ.get('API_URL') or 'https://api.gooee.io'
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
 
@@ -172,16 +172,20 @@ def g_get_request(endpoint: str, key: str):
 
     LOGGER.info(f'GET Request: {endpoint}')
     LOGGER.info(headers)
-    res = requests.get(API_URL + endpoint, headers=headers)
-
-    if res.status_code in (requests.codes.UNAUTHORIZED, requests.codes.FORBIDDEN):
-        raise AuthException('Auth error')
-    if res.status_code in (requests.codes.BAD_REQUEST, requests.codes.NOT_FOUND):
-        raise BadRequestException('Device or Space not found')
+    url = API_URL + endpoint
+    data = []
+    while url:
+        res = requests.get(url, headers=headers)
+        if res.status_code in (requests.codes.UNAUTHORIZED, requests.codes.FORBIDDEN):
+            raise AuthException('Auth error')
+        if res.status_code in (requests.codes.BAD_REQUEST, requests.codes.NOT_FOUND):
+            raise BadRequestException('Device or Space not found')
+        url = res.links.get('next')
+        data = data + res.json() if url else res.json()
 
     LOGGER.info('Cloud-api response:')
-    LOGGER.info(res.text)
-    return res.json()
+    LOGGER.info(data)
+    return data
 
 
 def g_get_state(type_: str, id_: str, bearer_token: str) -> dict:
