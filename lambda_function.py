@@ -56,7 +56,8 @@ CAPABILITY_TO_META = {
         lambda val: {"@type": "IntegralPowerLevel", "value": val}),
     'percentage': ('dim', lambda val: val),
     'connectivity': ('is_online',
-        lambda val: {"value": "OK" if val else "UNREACHABLE"})
+        lambda val: {"value": "OK"})
+        #  lambda val: {"value": "OK" if val else "UNREACHABLE"})
 }
 
 
