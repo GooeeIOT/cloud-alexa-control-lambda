@@ -181,9 +181,7 @@ def g_get_request(endpoint: str, key: str):
         if res.status_code in (requests.codes.BAD_REQUEST, requests.codes.NOT_FOUND):
             raise BadRequestException('Device or Space not found')
         url = res.links.get('next', {}).get('url')
-        data = data + res.json() if url and isinstance(res.json(), list) else res.json()
-        LOGGER.info('data:')
-        LOGGER.info(data)
+        data = data + res.json() if isinstance(res.json(), list) else res.json()
 
     LOGGER.info('Cloud-api response:')
     LOGGER.info(data)
