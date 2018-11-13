@@ -72,6 +72,10 @@ class ParentSpaceException(Exception):
     """Parent Spaces do not have devices causing a ZeroDivisionError"""
 
 
+class MetaNotAvailableException(Exception):
+    """Gooee API not reporting meta for Device/Space"""
+
+
 def lambda_handler(request: dict, context: dict) -> dict:
     """Main Lambda handler."""
 
@@ -127,6 +131,10 @@ def lambda_handler(request: dict, context: dict) -> dict:
             error_response['event']['payload']['message'] = err.args[0]
         elif isinstance(err, ParentSpaceException):
             error_response['event']['payload']['type'] = 'INVALID_DIRECTIVE'
+            error_response['event']['payload']['message'] = err.args[0]
+            return error_response  # Skip logging in Sentry
+        elif isinstance(err, MetaNotAvailableException):
+            error_response['event']['payload']['type'] = 'ENDPOINT_UNREACHABLE'
             error_response['event']['payload']['message'] = err.args[0]
             return error_response  # Skip logging in Sentry
 
@@ -444,7 +452,11 @@ def handle_report_state(request: dict) -> dict:
         # Translate Gooee meta to how Alexa expects it, for example:
         # if gooee_state was {'onoff': True} transfunc will return 'ON'
         gooee_name, transfunc = CAPABILITY_TO_META[amz_name]
-        property_['value'] = transfunc(gooee_state.get(gooee_name))
+        try:
+            property_['value'] = transfunc(gooee_state[gooee_name])
+        except KeyError:  # Meta is not available from gooee response
+            raise MetaNotAvailableException('Gooee API not reporting meta for '
+                                            'Device/Space')
 
         properties.append(property_)
 
