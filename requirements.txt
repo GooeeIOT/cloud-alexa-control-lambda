@@ -1,2 +1,3 @@
 pytest==3.5.1
 raven==6.8.0
+requests==2.20.1

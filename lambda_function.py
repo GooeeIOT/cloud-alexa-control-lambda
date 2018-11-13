@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import http.client
+import requests
 import json
 import logging
 import os
@@ -145,51 +145,43 @@ def lambda_handler(request: dict, context: dict) -> dict:
 
 def g_post_action_request(payload: dict, key: str):
     """Make a POST action request to the Gooee Cloud API"""
-    conn = http.client.HTTPSConnection(API_URL)
     headers = {
         'Authorization': f'Bearer {key}',
         'Content-Type': 'application/json',
     }
 
-    payload = json.dumps(payload)
-
     LOGGER.info('POST Request:')
     LOGGER.info(headers)
-    LOGGER.info(payload)
-    conn.request('POST', '/actions', payload, headers)
+    LOGGER.info(json.dumps(payload))
+    res = requests.post(API_URL + '/actions', json=payload, headers=headers)
 
-    res = conn.getresponse()
-    if res.status in (http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN):
+    if res.status_code in (requests.codes.UNAUTHORIZED, requests.codes.FORBIDDEN):
         raise AuthException('Auth error')
-    if res.status in (http.HTTPStatus.BAD_REQUEST, http.HTTPStatus.NOT_FOUND):
+    if res.status_code in (requests.codes.BAD_REQUEST, requests.codes.NOT_FOUND):
         raise BadRequestException('Device or Space not found')
-    data = res.read()
 
     LOGGER.info('Cloud-api response:')
-    LOGGER.info(data.decode('utf-8'))
+    LOGGER.info(res.text)
 
 
 def g_get_request(endpoint: str, key: str):
     """Make a GET request to the Gooee Cloud API"""
-    conn = http.client.HTTPSConnection(API_URL)
     headers = {
         'Authorization': f'Bearer {key}',
     }
 
     LOGGER.info(f'GET Request: {endpoint}')
     LOGGER.info(headers)
-    conn.request('GET', endpoint, headers=headers)
+    res = requests.get(API_URL + endpoint, headers=headers)
 
-    res = conn.getresponse()
-    if res.status in (http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN):
+    if res.status_code in (requests.codes.UNAUTHORIZED, requests.codes.FORBIDDEN):
         raise AuthException('Auth error')
-    if res.status in (http.HTTPStatus.BAD_REQUEST, http.HTTPStatus.NOT_FOUND):
+    if res.status_code in (requests.codes.BAD_REQUEST, requests.codes.NOT_FOUND):
         raise BadRequestException('Device or Space not found')
-    data = res.read()
 
     LOGGER.info('Cloud-api response:')
-    LOGGER.info(data.decode('utf-8'))
-    return json.loads(data.decode('utf-8'))
+    LOGGER.info(res.text)
+    return res.json()
 
 
 def g_get_state(type_: str, id_: str, bearer_token: str) -> dict:
