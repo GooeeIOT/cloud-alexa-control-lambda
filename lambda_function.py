@@ -52,8 +52,7 @@ with open('device-template.json') as fp:
 CAPABILITY_TO_META = {
     'powerState': ('onoff', lambda val: 'ON' if val else 'OFF'),
     'brightness': ('dim', lambda val: val),
-    'powerLevel': ('dim',
-        lambda val: {"@type": "IntegralPowerLevel", "value": val}),
+    'powerLevel': ('dim', lambda val: val),
     'percentage': ('dim', lambda val: val),
     'connectivity': ('is_online',
         lambda val: {"value": "OK" if val else "UNREACHABLE"})
