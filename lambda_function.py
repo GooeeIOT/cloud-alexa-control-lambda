@@ -122,7 +122,8 @@ def lambda_handler(request: dict, context: dict) -> dict:
         # Add correlation token to the response only if the directive is not of type `Discover` or
         # `AddOrUpdateReport`
         if request['directive']['header']['name'] != 'Discover' and \
-                request['directive']['header']['name'] != 'AddOrUpdateReport':
+                request['directive']['header']['name'] != 'AddOrUpdateReport' and \
+                error_response['event']['header'].get('correlationToken'):
             error_response['event']['header']['correlationToken'] = \
                 request['directive']['header']['correlationToken']
         if isinstance(err, BadRequestException):
