@@ -107,8 +107,6 @@ def lambda_handler(request: dict, context: dict) -> dict:
                     'namespace': 'Alexa',
                     'name': 'ErrorResponse',
                     'messageId': str(uuid.uuid4()),
-                    'correlationToken':
-                        request['directive']['header']['correlationToken'],
                     'payloadVersion': '3',
                 },
                 'endpoint': {
@@ -121,6 +119,13 @@ def lambda_handler(request: dict, context: dict) -> dict:
                 }
             }
         }
+        # Add correlation token to the response only if the directive is not of type `Discover` or
+        # `AddOrUpdateReport`
+        if request['directive']['header']['name'] != 'Discover' and \
+                request['directive']['header']['name'] != 'AddOrUpdateReport' and \
+                error_response['event']['header'].get('correlationToken'):
+            error_response['event']['header']['correlationToken'] = \
+                request['directive']['header']['correlationToken']
         if isinstance(err, BadRequestException):
             error_response['event']['payload']['type'] = 'NO_SUCH_ENDPOINT'
             error_response['event']['payload']['message'] = err.args[0]
