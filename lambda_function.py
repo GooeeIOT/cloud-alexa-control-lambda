@@ -22,19 +22,19 @@ import os
 import time
 import uuid
 
-
-API_URL = os.environ.get('API_URL') or 'api.gooee.io'
+API_URL = os.environ.get("API_URL") or "api.gooee.io"
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
 
 # Sentry Setup
-SENTRY_ENVIRONMENT = 'TMPL_SENTRY_ENVIRONMENT'
-SENTRY_RELEASE = 'TMPL_SENTRY_RELEASE'
-SENTRY_KEY = 'TMPL_SENTRY_KEY'
+SENTRY_ENVIRONMENT = "TMPL_SENTRY_ENVIRONMENT"
+SENTRY_RELEASE = "TMPL_SENTRY_RELEASE"
+SENTRY_KEY = "TMPL_SENTRY_KEY"
 SENTRY_PARAMS = (SENTRY_ENVIRONMENT, SENTRY_RELEASE, SENTRY_KEY)
 SENTRY_CLIENT = None
-if not any(map(lambda p: p.startswith('TMPL_'), SENTRY_PARAMS)):
+if not any(map(lambda p: p.startswith("TMPL_"), SENTRY_PARAMS)):
     import raven
+
     SENTRY_CLIENT = raven.Client(
         dsn=SENTRY_KEY,
         environment=SENTRY_ENVIRONMENT,
@@ -43,9 +43,9 @@ if not any(map(lambda p: p.startswith('TMPL_'), SENTRY_PARAMS)):
     )
 
 # Allow Devices and Spaces to be powered on/off, dim/brighten, and set to x%
-with open('space-template.json') as fp:
+with open("space-template.json") as fp:
     SPACE_TEMPLATE = json.load(fp)
-with open('device-template.json') as fp:
+with open("device-template.json") as fp:
     DEVICE_TEMPLATE = json.load(fp)
 
 
@@ -87,27 +87,19 @@ def lambda_handler(request: dict, context: dict) -> dict:
                     "namespace": "Alexa",
                     "name": "ErrorResponse",
                     "messageId": str(uuid.uuid4()),
-                    "correlationToken":
-                        request["directive"]["header"]["correlationToken"],
+                    "correlationToken": request["directive"]["header"]["correlationToken"],
                     "payloadVersion": "3",
                 },
-                "endpoint": {
-                    "endpointId":
-                        request["directive"]["endpoint"]["endpointId"]
-                },
-                "payload": {
-                    "type": "INTERNAL_ERROR",
-                    "message": "Unhandled Error",
-                }
+                "endpoint": {"endpointId": request["directive"]["endpoint"]["endpointId"]},
+                "payload": {"type": "INTERNAL_ERROR", "message": "Unhandled Error",},
             }
         }
         if isinstance(err, BadRequestException):
-            error_response['event']['payload']['type'] = "NO_SUCH_ENDPOINT"
-            error_response['event']['payload']['message'] = err.args[0]
+            error_response["event"]["payload"]["type"] = "NO_SUCH_ENDPOINT"
+            error_response["event"]["payload"]["message"] = err.args[0]
         elif isinstance(err, AuthException):
-            error_response['event']['payload']['type'] = \
-                "INVALID_AUTHORIZATION_CREDENTIAL"
-            error_response['event']['payload']['message'] = err.args[0]
+            error_response["event"]["payload"]["type"] = "INVALID_AUTHORIZATION_CREDENTIAL"
+            error_response["event"]["payload"]["message"] = err.args[0]
 
         if SENTRY_CLIENT:
             SENTRY_CLIENT.captureException()
@@ -118,25 +110,25 @@ def g_post_action_request(payload: dict, key: str):
     """Make a POST action request to the Gooee Cloud API"""
     conn = http.client.HTTPSConnection(API_URL)
     headers = {
-        'Authorization': f"Bearer {key}",
-        'Content-Type': "application/json",
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
     }
 
     payload = json.dumps(payload)
 
-    LOGGER.info('POST Request:')
+    LOGGER.info("POST Request:")
     LOGGER.info(headers)
     LOGGER.info(payload)
     conn.request("POST", "/actions", payload, headers)
 
     res = conn.getresponse()
     if res.status in (http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN):
-        raise AuthException('Auth error')
+        raise AuthException("Auth error")
     if res.status == http.HTTPStatus.BAD_REQUEST:
-        raise BadRequestException('Device or Space not found')
+        raise BadRequestException("Device or Space not found")
     data = res.read()
 
-    LOGGER.info('Cloud-api response:')
+    LOGGER.info("Cloud-api response:")
     LOGGER.info(data.decode("utf-8"))
 
 
@@ -144,19 +136,19 @@ def g_get_request(endpoint: str, key: str):
     """Make a GET request to the Gooee Cloud API"""
     conn = http.client.HTTPSConnection(API_URL)
     headers = {
-        'Authorization': f"Bearer {key}",
+        "Authorization": f"Bearer {key}",
     }
 
-    LOGGER.info(f'GET Request: {endpoint}')
+    LOGGER.info(f"GET Request: {endpoint}")
     LOGGER.info(headers)
     conn.request("GET", endpoint, headers=headers)
 
     res = conn.getresponse()
     if res.status in (http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN):
-        raise AuthException('Auth error')
+        raise AuthException("Auth error")
     data = res.read()
 
-    LOGGER.info('Cloud-api response:')
+    LOGGER.info("Cloud-api response:")
     LOGGER.info(data.decode("utf-8"))
     return json.loads(data.decode("utf-8"))
 
@@ -164,7 +156,7 @@ def g_get_request(endpoint: str, key: str):
 def handle_discovery(request: dict) -> dict:
     """Discovery Handler"""
     try:
-        bearer_token = request['directive']['payload']['scope']['token']
+        bearer_token = request["directive"]["payload"]["scope"]["token"]
     except KeyError:
         # As per Alexa docs: If an error such as an expired token occurs
         # during a discovery request, return an empty endpoint array and not
@@ -175,31 +167,28 @@ def handle_discovery(request: dict) -> dict:
 
     # Get User's scoped Spaces
     try:
-        res = g_get_request('/spaces/?_include=id,name', bearer_token)
+        res = g_get_request("/spaces/?_include=id,name", bearer_token)
     except AuthException:
         pass  # As per Alexa docs: if an error associated with the customer's
         # account occurs, the skill should return an empty endpoints array
     else:
         for space in res:
             appliance = SPACE_TEMPLATE.copy()
-            appliance['friendlyName'] = space['name']
-            appliance['endpointId'] = space['id']
+            appliance["friendlyName"] = space["name"]
+            appliance["endpointId"] = space["id"]
             endpoints.append(appliance)
 
     # Get User's scoped Devices
     try:
-        res = g_get_request(
-            '/devices/?_include=name,id&type__in=wim,bulb',
-            bearer_token,
-        )
+        res = g_get_request("/devices/?_include=name,id&type__in=wim,bulb", bearer_token,)
     except AuthException:
         pass  # As per Alexa docs: if an error associated with the customer's
         # account occurs, the skill should return an empty endpoints array
     else:
         for device in res:
             appliance = DEVICE_TEMPLATE.copy()
-            appliance['friendlyName'] = device['name']
-            appliance['endpointId'] = device['id']
+            appliance["friendlyName"] = device["name"]
+            appliance["endpointId"] = device["id"]
             endpoints.append(appliance)
 
     response = {
@@ -208,11 +197,9 @@ def handle_discovery(request: dict) -> dict:
                 "namespace": "Alexa.Discovery",
                 "name": "Discover.Response",
                 "payloadVersion": "3",
-                "messageId": str(uuid.uuid4())
+                "messageId": str(uuid.uuid4()),
             },
-            "payload": {
-                "endpoints": endpoints
-            }
+            "payload": {"endpoints": endpoints},
         }
     }
     return response
@@ -223,7 +210,7 @@ def handle_power_controller(request: dict) -> dict:
     request_name = request["directive"]["header"]["name"]
     endpoint = request["directive"]["endpoint"]["endpointId"]
     type_ = request["directive"]["endpoint"]["cookie"]["type"]
-    bearer_token = request['directive']['endpoint']['scope']['token']
+    bearer_token = request["directive"]["endpoint"]["scope"]["token"]
 
     if request_name == "TurnOn":
         value = "ON"
@@ -234,8 +221,9 @@ def handle_power_controller(request: dict) -> dict:
         "name": f"Alexa {value} request",
         "type": value.lower(),
         "value": {"transition_time": 2},
+        "target_type": type_,
+        "target_id": endpoint,
     }
-    payload[type_] = endpoint
 
     g_post_action_request(payload, bearer_token)
 
@@ -246,11 +234,7 @@ def handle_power_controller(request: dict) -> dict:
                     "namespace": "Alexa.PowerController",
                     "name": "powerState",
                     "value": value,
-                    "timeOfSample": time.strftime(
-                        "%Y-%m-%dT%H:%M:%S.00Z",
-                        time.gmtime(),
-                    ),
-
+                    "timeOfSample": time.strftime("%Y-%m-%dT%H:%M:%S.00Z", time.gmtime(),),
                     "uncertaintyInMilliseconds": 500,
                 }
             ]
@@ -261,18 +245,14 @@ def handle_power_controller(request: dict) -> dict:
                 "name": "Response",
                 "payloadVersion": "3",
                 "messageId": str(uuid.uuid4()),
-                "correlationToken":
-                    request["directive"]["header"]["correlationToken"],
+                "correlationToken": request["directive"]["header"]["correlationToken"],
             },
             "endpoint": {
-                "scope": {
-                    "type": "BearerToken",
-                    "token": bearer_token,
-                },
-                "endpointId": endpoint
+                "scope": {"type": "BearerToken", "token": bearer_token,},
+                "endpointId": endpoint,
             },
             "payload": {},
-        }
+        },
     }
     return response
 
@@ -281,7 +261,7 @@ def handle_brightness_controller(request: dict) -> dict:
     """BrightnessController Handler"""
     request_name = request["directive"]["header"]["namespace"]
     request_data = request["directive"]["payload"]
-    bearer_token = request['directive']['endpoint']['scope']['token']
+    bearer_token = request["directive"]["endpoint"]["scope"]["token"]
     endpoint = request["directive"]["endpoint"]["endpointId"]
     type_ = request["directive"]["endpoint"]["cookie"]["type"]
     value = None
@@ -290,19 +270,23 @@ def handle_brightness_controller(request: dict) -> dict:
 
     if "brightness" in request_data:
         value = request_data["brightness"]
-        payload.update({
-            "name": "Alexa brightness request",
-            "type": "dim",
-            "value": {"level": value, "transition_time": 1},
-        })
+        payload.update(
+            {
+                "name": "Alexa brightness request",
+                "type": "dim",
+                "value": {"level": value, "transition_time": 1},
+            }
+        )
         g_post_action_request(payload, bearer_token)
     elif "brightnessDelta" in request_data:
         value = request_data["brightnessDelta"]
-        payload.update({
-            "name": "Alexa brightnessDelta request",
-            "type": "adjust",
-            "value": {"delta": value, "transition_time": 1},
-        })
+        payload.update(
+            {
+                "name": "Alexa brightnessDelta request",
+                "type": "adjust",
+                "value": {"delta": value, "transition_time": 1},
+            }
+        )
         g_post_action_request(payload, bearer_token)
 
     response = {
@@ -312,11 +296,7 @@ def handle_brightness_controller(request: dict) -> dict:
                     "namespace": request_name,
                     "name": "brightness",
                     "value": abs(value),  # TODO: get actual value from API
-                    "timeOfSample": time.strftime(
-                        "%Y-%m-%dT%H:%M:%S.00Z",
-                        time.gmtime(),
-                    ),
-
+                    "timeOfSample": time.strftime("%Y-%m-%dT%H:%M:%S.00Z", time.gmtime(),),
                     "uncertaintyInMilliseconds": 500,
                 }
             ]
@@ -327,18 +307,14 @@ def handle_brightness_controller(request: dict) -> dict:
                 "name": "Response",
                 "payloadVersion": "3",
                 "messageId": str(uuid.uuid4()),
-                "correlationToken":
-                    request["directive"]["header"]["correlationToken"],
+                "correlationToken": request["directive"]["header"]["correlationToken"],
             },
             "endpoint": {
-                "scope": {
-                    "type": "BearerToken",
-                    "token": bearer_token,
-                },
-                "endpointId": endpoint
+                "scope": {"type": "BearerToken", "token": bearer_token,},
+                "endpointId": endpoint,
             },
             "payload": {},
-        }
+        },
     }
     return response
 
