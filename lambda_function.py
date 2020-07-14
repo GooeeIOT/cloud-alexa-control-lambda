@@ -153,7 +153,7 @@ def g_post_action_request(payload: dict, key: str):
         'Authorization': f'Bearer {key}',
         'Content-Type': 'application/json',
     }
-
+    payload.update({"origin": "alexa"})
     LOGGER.info('POST Request:')
     LOGGER.info(headers)
     LOGGER.info(json.dumps(payload))

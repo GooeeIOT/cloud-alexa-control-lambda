@@ -256,6 +256,19 @@ def test_power_controller(mocked_post_req, fake_requests):
     assert args[0]['type'] == 'on'
 
 
+@mock.patch("lambda_function.requests")
+def test_alexa_action_origin(mocked_req, fake_requests):
+    res = lambda_function.lambda_handler(fake_requests['power'], {})
+    assert isinstance(res, dict)
+    mocked_req.post.assert_called_once()
+    _, kwargs = mocked_req.post.call_args
+    assert kwargs['json']['origin'] == 'alexa'
+    assert kwargs['json']['type'] == 'on'
+    assert kwargs['json']['value'] == {'transition_time': 2}
+    assert kwargs['json']['device'] == 'appliance-001'
+    assert kwargs['json']['name'] == 'Alexa ON request'
+
+
 @mock.patch("lambda_function.g_post_action_request")
 def test_brightness_controller(mocked_post_req, fake_requests):
     brightness_value = fake_requests['dim']['directive']['payload']['brightness']
